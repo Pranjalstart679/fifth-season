@@ -1,0 +1,18 @@
+name: fifth-season-conda
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - pandas
+  - xarray
+  - matplotlib
+  - netcdf4
+  - dask
+  - scipy
+  - scikit-image
+  - jupyter
+  - ipykernel
+  - pip:
+      - tensorflow
