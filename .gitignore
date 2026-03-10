@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Data & Artifacts
 Dataset/
 artifacts/
@@ -27,3 +28,8 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+=======
+*.nc
+env/
+__pycache__/
+>>>>>>> 215bd0ed24fc76bbff8282c36143d84dcd2997bf
