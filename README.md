@@ -1,178 +1,65 @@
-# fifth-season
+﻿# Aerosol Prediction over the IGP (ConvLSTM)
 
-Spatio-temporal smog forecasting using a multi-task ConvLSTM U-Net, fusing Sentinel-5P satellite imagery with NASA MERRA-2 reanalysis weather data.
+A Deep Learning and Geospatial Data Science project building a Multi-Task ConvLSTM model to predict aerosol index intensities and identify dominant aerosol type compositions (by percentage) as spatio-temporal heatmaps over the Indo-Gangetic Plain (IGP).
 
----
+## Project Overview
+This project fuses high-resolution satellite imagery with coarse global weather reanalysis data to combat the over-smoothing problem common in forecasting models.
 
-## Problem
+**Bounding Box (IGP):** `[68.137, 24.886, 84.836, 34.379]`
+**Timeframe:** Jan 1, 2019 – Dec 31, 2025
 
-Standard smog forecasting models tend to produce over-smoothed spatial predictions that lose fine-grained edge structure. This project addresses that with a combined MSE + SSIM regression loss, supplemented by a classification head that identifies the dominant aerosol type in each grid cell.
-
----
-
-## Data Sources
-
-| Dataset | Description | Source |
-|---------|-------------|--------|
-| **Sentinel-5P** (`S5PL2_5D.nc`) | Atmospheric composition imagery (NO₂, SO₂, aerosol optical depth, etc.) aggregated to 5-day averages | ESA Copernicus |
-| **MERRA-2** (`merra-2-till-DEC2025/`) | NASA meteorological reanalysis — wind, temperature, humidity, aerosol column masses; daily files interpolated to match the Sentinel-5P 291×512 grid | NASA GES DISC |
-
----
-
-## Model Architecture
-
-**Multi-Task Learning U-Net ConvLSTM** (`src/model/convlstm.py`)
-
-```
-Input  (B, T=5, H, W, C_features)
-  │
-  ├── ConvLSTM Encoder  (3 depth levels, return_sequences=True)
-  │     └── SE channel attention at each level
-  │
-  ├── ConvLSTM Bottleneck
-  │
-  ├── ConvLSTM Decoder  (3 depth levels with U-Net skip connections)
-  │
-  ├── severity_output  (H, W, 1)  — smog intensity regression
-  └── identity_output  (H, W, K)  — dominant aerosol class (K=5)
-```
-
-**Losses**
-
-| Head | Loss | Notes |
-|------|------|-------|
-| Severity | `0.20 × MSE + 0.80 × (1 − SSIM)` | High SSIM weight fights over-smoothing |
-| Identity | Sparse focal cross-entropy (γ=2) | Down-weights easy majority-class pixels |
-
-**Metrics tracked:** MSE, Average SSIM (severity); sparse categorical accuracy (identity)
-
----
-
-## Aerosol Classes
-
-The five MERRA-2 aerosol species compete per grid cell to determine the classification target:
-
-| Index | Variable | Species |
-|-------|----------|---------|
-| 0 | `BCCMASS` | Black carbon |
-| 1 | `DUCMASS` | Dust |
-| 2 | `OCCMASS` | Organic carbon |
-| 3 | `SO4CMASS` | Sulfate |
-| 4 | `SSCMASS` | Sea salt |
-
-The dominant class per cell is determined by the argmax of column mass concentrations.
-
----
-
-## Data Pipeline
-
-```
-Raw Sentinel-5P (.nc)  →  process_sentinel.py  →  sentinel_5d.nc
-Raw MERRA-2 (daily .nc) →  process_merra2.py   →  merra2_5d_aligned.nc
-                                                          │
-                                               fuse_datasets.py
-                                                          │
-                              ┌───────────────────────────┤
-                              ↓                           ↓
-                         train_5D.nc               test_5D.nc
-                       (up to 2022-12-31)         (year 2023)
-```
-
-**Preprocessing steps:**
-1. **Sentinel** — variable selection, NaN handling, 5-day temporal aggregation
-2. **MERRA-2** — deduplication, hourly → 5-day averaging, bilinear interpolation onto the 291×512 Sentinel grid
-3. **Fusion** — inner join on shared timestamps, min-max scaling (statistics fitted on training split only), dominant aerosol target creation
-4. **Split** — time-based: train ≤ 2022, test = 2023 (falls back to last available year if 2023 is absent)
-
----
+### Data Sources
+1. **Sentinel-5P:** High-resolution daily overpass atmospheric composition.
+2. **MERRA-2:** 0.25-degree grid meteorological reanalysis (includes `BCCMASS` Black Carbon, `DUCMASS` Dust, `OCCMASS` Organic Carbon, `SO4CMASS` Sulfate, and `SSCMASS` Sea Salt).
 
 ## Repository Layout
+Standard geospatial deep learning structure to isolate massive datasets from processing scripts and artifacts:
 
 ```
 fifth-season/
-├── src/
-│   ├── train.py                  # WeatherDataGenerator + train_model()
-│   ├── evaluate.py               # evaluate_model() — MSE, SSIM, accuracy
-│   ├── data/
-│   │   ├── process_sentinel.py
-│   │   ├── process_merra2.py
-│   │   └── fuse_datasets.py
-│   └── model/
-│       ├── convlstm.py           # MTL U-Net ConvLSTM + custom losses/metrics
-│       └── training_workflow.ipynb  # Interactive debug/training notebook
-├── Dataset/
-│   ├── S5PL2_5D.nc
-│   ├── merra-2-till-DEC2025/    # Raw daily MERRA-2 NetCDF files
-│   └── processed/               # Generated artifacts (gitignored)
-├── artifacts/                   # Model checkpoints, training logs (gitignored)
-├── environment.yml
-├── environment.windows-cuda.yml
-└── CUDA_SETUP.md
+│
+├── data/                          # Data directory (ignored in git)
+│   ├── raw/                       # Immutable raw datasets downloaded directly
+│   │   ├── merra-2/               # Hourly/Daily .nc files (e.g., merra-2-till-DEC2025)
+│   │   └── sentinel-5p/           # High-res, daily overpass S5P files
+│   ├── interim/                   # Intermediate data (e.g., temporally subsetted)
+│   └── processed/                 # Final, model-ready aligned un-corrupted aggregated data
+│
+├── notebooks/                     # Jupyter notebooks for interactive EDA
+│   ├── 01-eda-merra2.ipynb        # Inspecting MERRA-2 dimensions/vars
+│   ├── 02-eda-s5p.ipynb           # Exploring Sentinel-5P data
+│   └── 03-spatial-alignment.ipynb # Testing xesmf conservative regridding
+│
+├── scripts/                       # Modular Python scripts for reproducible execution
+│   ├── preprocessing/             # Scripts to clean, merge, and align data
+│   │   ├── preprocess_merra2.py   # Merges daily netCDF, temporally resamples to Daily mean
+│   │   ├── preprocess_s5p.py      # Sentinel-5P cleaning, bounding box sub-setting
+│   │   └── align_spatial.py       # Inter-grid alignment using xesmf
+│   │
+│   ├── modeling/                  # Model architecture and training scripts
+│   │   ├── data_loader.py         # Torch/TF Map Dataset/Dataloader
+│   │   ├── convlstm.py            # The Deep Learning Model architecture component
+│   │   ├── train.py               # The main model training loop
+│   │   └── evaluate.py            # Handles metrics like MSE, SSIM, Categorical Accuracy
+│   │
+│   └── visualization/             # Heatmaps, comparison figures, plots
+│       └── plot_heatmaps.py       # Ground truth vs predicted visualizer
+│
+├── models/                        # Checkpoints and serialized model states
+│   └── checkpoints/
+│
+├── reports/                       # Evaluation PDFs, PNGs of output heatmaps
+│   └── figures/
+│
+├── requirements.txt               # xarray, dask, xesmf, torch, netCDF4, etc.
+└── environment.yml                # Conda requirements depending on OS implementation
 ```
 
----
-
-## Setup
-
-### CPU / generic
+## Running the Data Pipeline
+1. Install requirements: `pip install -r requirements.txt`
+2. Ensure you have the C-libraries required by `xarray` installed (`netCDF4`, `h5netcdf`).
+3. Run the MERRA-2 pipeline to aggregate daily logs into consolidated averages:
 ```bash
-conda env create -f environment.yml
-conda activate fifth-season
+python scripts/preprocessing/preprocess_merra2.py
 ```
 
-### Windows + CUDA (RTX GPU)
-Follow [CUDA_SETUP.md](CUDA_SETUP.md), then:
-```bash
-conda env create -f environment.windows-cuda.yml
-conda activate fifth-season-cuda
-```
-
-Memory growth is enabled automatically in the notebook and training script so TensorFlow does not allocate all VRAM on startup.
-
----
-
-## Training
-
-### Via notebook (recommended for debugging)
-Open `src/model/training_workflow.ipynb` and step through each guarded stage. Toggle the `RUN_*` flags at the top to skip stages whose outputs already exist.
-
-### Via CLI
-```bash
-# Full training run
-python src/train.py
-
-# With custom hyperparameters
-python src/train.py \
-  --epochs 20 \
-  --batch-size 1 \
-  --lr 1e-5 \
-  --output-dir artifacts/my_run
-```
-
-Each training run is saved to a timestamped subdirectory (e.g. `artifacts/run_20260310_143022/`) so experiments are never overwritten. The best checkpoint is also copied to `artifacts/best_model.keras`.
-
----
-
-## Evaluation
-
-```bash
-python src/evaluate.py \
-  --model-path artifacts/best_model.keras \
-  --test-dataset Dataset/processed/test_5D.nc \
-  --output-dir artifacts/evaluation
-```
-
-Evaluation produces per-sample MSE, SSIM, and per-class accuracy, plus saved prediction plots.
-
----
-
-## Key Hyperparameters
-
-| Parameter | Default | Notes |
-|-----------|---------|-------|
-| Sequence length | 5 | Number of 5-day steps fed as input |
-| Batch size | 1 | Full 291×512 spatial frames are memory-intensive |
-| Learning rate | 1e-5 | Low LR stabilises ConvLSTM training |
-| SSIM weight (α) | 0.80 | Higher = sharper spatial predictions |
-| Focal loss γ | 2.0 | Focuses on hard aerosol minority classes |
-| Early stopping patience | 4 | Monitors `val_loss` |
