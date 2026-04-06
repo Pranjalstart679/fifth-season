@@ -1,0 +1,26 @@
+name: earthformer-env
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy<2
+  - pandas<2.2
+  - xarray
+  - netcdf4
+  - dask
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=11.8 # Update this depending on the new device's CUDA version
+  - pytorch-lightning
+  - einops
+  - pip:
+      - yacs
+      - omegaconf
+      - tensorboard
+      - wandb
+      # Amazon's Earthtransformer source installation
+      - git+https://github.com/amazon-science/earth-forecasting-transformer.git

@@ -1,17 +1,31 @@
-<<<<<<< HEAD
-# Data & Artifacts
+# ── Large Data & Model Artifacts ──────────────────────────────────────────────
 Dataset/
 artifacts/
+*.nc
+*.nc.tmp
 
-# Python caching
+# Trained model files
+*.keras
+*.h5
+*.pb
+*.onnx
+*.pt
+*.pth
+
+# ── Python ─────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
 
-# Jupyter
+# ── Jupyter ────────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
+*.ipynb_checkpoints
 
-# Environments
+# ── Virtual Environments ───────────────────────────────────────────────────────
 .env
 .venv
 env/
@@ -20,7 +34,18 @@ ENV/
 env.bak/
 venv.bak/
 
-# OS generated files
+# ── Logs & Temp Files ──────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
+
+# ── IDE ────────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS Generated ───────────────────────────────────────────────────────────────
 .DS_Store
 .DS_Store?
 ._*
@@ -28,8 +53,4 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
-=======
-*.nc
-env/
-__pycache__/
->>>>>>> 215bd0ed24fc76bbff8282c36143d84dcd2997bf
+desktop.ini
